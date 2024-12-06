@@ -1,0 +1,7 @@
+requests
+beautifulsoup4
+transformers
+torch
+flask
+pymongo
+numpy==1.25.2 

@@ -1,0 +1,5 @@
+{
+  "database": "data/scraper_results.db",
+  "labels": ["contact", "ACFr", "budget", "important", "report", "PDF", "financial"],
+  "workers": 2
+}
