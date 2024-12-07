@@ -119,7 +119,7 @@ def get_relevant_links(url, page_source):
     best_label = classification_result['labels'][0]
     relevance_score = classification_result['scores'][0]
 
-    logging.info(f"Zero shot classification => {full_text} =>{best_label}, {relevance_score}.")
+    logging.info(f"Zero shot classification => {best_label}, {relevance_score}.")
 
     # If relevance score is below threshold, consider the page irrelevant
     if relevance_score < relevanceThreshold:
