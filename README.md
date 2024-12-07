@@ -33,7 +33,7 @@ WARNING: This is a development server. Do not use it in a production deployment.
 1. clean up the page source and to extract only visible text, and remove any extra characters. Perhaps this would improve the score of the scraped site. 
 2. research another nlp or use another ML model or use OpenAI. There are probably trade offs in terms of cost and time and performance. 
 3. I've already structured it with the event queue in python, but if I were to deploy this in production, 
-I would likely host this on an AWS lambda and have that lambda function triggered by an AWS SQS queue. After every url is scraped, all downstream urls are fired back into the SQS queue where it would trigger the lambda again. There would likely need to be an extra db connection to check if any of these downstream urls already exist in the db to prevent circular loops. 
+I would likely host this on an AWS lambda and have that lambda function triggered by an AWS SQS queue. After every url is scraped, all downstream urls are fired back into the SQS queue where it would trigger the lambda again. There would likely need to be an extra db connection to check if any of these downstream urls already exist in the db to prevent circular loops. (also a convenient place to add a cache)
 4. sqlite was defaulted as the db of choice, but in an AWS environment, we'd likely use something like dynamo db as its fast and highily avaiable and scalable as we don't know how many sites we'll scrape. if we plan to use these sites in an internal capacity, we can use a mysql rds. 
 5. build out a more robust api. I didn't have too much direction with this part, so it's quite minimal. 
 
