@@ -132,7 +132,7 @@ def get_relevant_links(url, page_source):
             f"Zero-shot classification completed. "
             f"Label: {best_label}, Score: {relevance_score:.2f}, "
             f"Input: '{page_source[:50]}...', "
-            f"Timestamp: {datetime.now().isoformat()}"
+            f"Timestamp: {datetime.datetime.now().isoformat()}"
         )
 
         # If relevance score is below threshold, consider the page irrelevant
