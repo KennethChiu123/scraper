@@ -10,7 +10,7 @@ app = Flask(__name__)
 def get_saved_links(db_name=dbName):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM links')
+    cursor.execute('SELECT * FROM links order by relevance_score desc')
     rows = cursor.fetchall()
     conn.close()
     

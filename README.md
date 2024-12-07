@@ -23,3 +23,9 @@
 # is only going to be used as a third party tool for sales or some other team
 # or rds if these scraped links are going to be used elsewhere in the tech stack. 
 
+
+
+
+# places to improve
+
+1. clean up the page source and to extract only visible text, and remove any extra characters.

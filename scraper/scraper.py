@@ -64,7 +64,6 @@ def scrape_page(urls, workers):
         url = future_to_url[future]
         try:
             result = future.result()
-            print (url, future, result)
             if result:
                 downstream_links.extend(result)
         except Exception as e:
@@ -94,7 +93,7 @@ def process_url_list(url_list, workers):
     return scraped_links
 
 # Main function to simulate adding tasks to the event queue
-def main2():
+def main():
     # Create a queue to simulate event-driven task management
     event_queue = queue.Queue()
 
@@ -131,14 +130,14 @@ def main2():
 
 
 #test
-def main():
+def main2():
     url = ['https://www.bozeman.net/'] # Replace with your target URL
     
     urls1 = [
         "https://www.asu.edu/",
         "https://www.boerneisd.net/",
     ]
-    scrape_complete_page(urls1, workers)
+    #scrape_complete_page(["https://www.bozeman.net/departments/finance/budget-and-financial-reports"], workers)
     #scrape_complete_page(url, workers)
 
 
