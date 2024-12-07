@@ -5,6 +5,7 @@ import urllib
 import random
 import logging
 import requests
+import datetime
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from transformers import pipeline
@@ -69,7 +70,7 @@ def get_source(url):
     finally:
         if browser:
             browser.close()
-    return []
+    return None
 
 def fetch(url):
     headers = {
@@ -80,21 +81,28 @@ def fetch(url):
         "Referer": url,
         'Connection': 'keep-alive',
     }
-    response = requests.get(
-        url,
-        headers=headers,
-        timeout=5,
-        allow_redirects=True,
-        proxies=urllib.request.getproxies()
-    )
-    return response
+    try:
+        # added proxies to not get blocked
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=5,
+            allow_redirects=True,
+            proxies=urllib.request.getproxies()
+        )
+        return response
+    except Exception as e:
+        logging.error(f"Got Error for requests.get in fetch {e}.")
+
+    return None
+
 
 def get_page_source(url):
     # Send HTTP request to the URL
     text = None
     response = fetch(url)
     logging.info(f"Got {url} with status code {response.status_code}.")
-    if response.status_code == 200:
+    if response and response.status_code == 200:
         text = response.text
     else:
         text = get_source(url)
@@ -104,65 +112,81 @@ def get_page_source(url):
 # Function to scrape and identify relevant links
 def get_relevant_links(url, page_source):
     
-    #i went with summary over keywords
-    soup = BeautifulSoup(page_source, 'html.parser')
-    # Find all <p> tags
-    paragraphs = soup.find_all('p')
-    # Extract text from each paragraph and join them into a single string
-    paragraph_texts = [p.get_text(strip=True) for p in paragraphs]
-    # join all paragraph texts into one big string
-    full_text = '\n'.join(paragraph_texts)
-    
     relevant_links = []
-    # Perform zero-shot classification on the page source
-    classification_result = nlp(full_text, candidate_labels=labels)
-    best_label = classification_result['labels'][0]
-    relevance_score = classification_result['scores'][0]
+    try:
+        #i went with summary over keywords
+        soup = BeautifulSoup(page_source, 'html.parser')
+        # Find all <p> tags
+        paragraphs = soup.find_all('p')
+        # Extract text from each paragraph and join them into a single string
+        paragraph_texts = [p.get_text(strip=True) for p in paragraphs]
+        # join all paragraph texts into one big string
+        full_text = '\n'.join(paragraph_texts)
+        
+        # Perform zero-shot classification on the page source
+        classification_result = nlp(full_text, candidate_labels=labels)
+        best_label = classification_result['labels'][0]
+        relevance_score = classification_result['scores'][0]
 
-    logging.info(f"Zero shot classification => {best_label}, {relevance_score}.")
+        logging.info(
+            f"Zero-shot classification completed. "
+            f"Label: {best_label}, Score: {relevance_score:.2f}, "
+            f"Input: '{page_source[:50]}...', "
+            f"Timestamp: {datetime.now().isoformat()}"
+        )
 
-    # If relevance score is below threshold, consider the page irrelevant
-    if relevance_score < relevanceThreshold:
+        # If relevance score is below threshold, consider the page irrelevant
+        if relevance_score < relevanceThreshold:
+            return relevant_links
+
+        #logging.info(f"paragraphs => {paragraphs}.")
+        generated_text = summarizer(full_text, min_length=10, max_length=100)
+        logging.info(f"generated_text => {generated_text}.")
+        #INFO:root:generated_text => [{'summary_text': "Ann Arbor's mission is to deliver exceptional services that sustain and enhance a vibrant, safe and diverse community . 
+        # Apply  Pay  Volunteer  Request  Report Licenses & Permits Voter Registration Election Inspectors Tax Deferment Apply for a scholarship Parking Citation Property 
+        # Tax Water Bill Solid Waste Bill Invoices Boards and Commissions Events GIVE 365 Natural Area Preservation Be the first to know when new information is available!"}].
+
+        
+        relevant_links.append({
+            "url": url,
+            "summary": generated_text[0]['summary_text'],
+            "classification": best_label,
+            "relevance_score": relevance_score
+        })
+
         return relevant_links
-
-    #logging.info(f"paragraphs => {paragraphs}.")
-    generated_text = summarizer(full_text, min_length=10, max_length=100)
-    logging.info(f"generated_text => {generated_text}.")
-    #INFO:root:generated_text => [{'summary_text': "Ann Arbor's mission is to deliver exceptional services that sustain and enhance a vibrant, safe and diverse community . 
-    # Apply  Pay  Volunteer  Request  Report Licenses & Permits Voter Registration Election Inspectors Tax Deferment Apply for a scholarship Parking Citation Property 
-    # Tax Water Bill Solid Waste Bill Invoices Boards and Commissions Events GIVE 365 Natural Area Preservation Be the first to know when new information is available!"}].
-
-    
-    relevant_links.append({
-        "url": url,
-        "summary": generated_text[0]['summary_text'],
-        "classification": best_label,
-        "relevance_score": relevance_score
-    })
+    except Exception as e:
+        logging.error(f"Got Error for get_relevant_links {e}.")
 
     return relevant_links
 
 
 def get_downstream_links(url, page_source):
-    # Parse HTML content
-    soup = BeautifulSoup(page_source, 'html.parser')
 
-    # Get the domain of the current page
-    base_domain = get_domain(url)
-
-    links = soup.find_all('a', href=True)
     urls = []
-    for link in links:
-        href = link.get('href')
-        # Make the URL absolute if it's relative
-        absolute_url = urljoin(url, href)
+    try:
+        # Parse HTML content
+        soup = BeautifulSoup(page_source, 'html.parser')
+
+        # Get the domain of the current page
+        base_domain = get_domain(url)
+
+        links = soup.find_all('a', href=True)
+        for link in links:
+            href = link.get('href')
+            # Make the URL absolute if it's relative
+            absolute_url = urljoin(url, href)
+            
+            # Get the domain of the link
+            link_domain = get_domain(absolute_url)
+            
+            # Compare the domain of the link to the base domain
+            if link_domain == base_domain:
+                # Add the link to the list if it matches the base domain
+                urls.append(absolute_url)
         
-        # Get the domain of the link
-        link_domain = get_domain(absolute_url)
-        
-        # Compare the domain of the link to the base domain
-        if link_domain == base_domain:
-            # Add the link to the list if it matches the base domain
-            urls.append(absolute_url)
-    
+        return urls
+    except Exception as e:
+        logging.error(f"Got Error for get_downstream_links {e}.")
+
     return urls

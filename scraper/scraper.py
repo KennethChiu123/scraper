@@ -1,7 +1,6 @@
 import time
 import queue
 import logging
-import itertools
 import threading
 import requests
 from config.config_loader import load_config
@@ -93,6 +92,7 @@ def process_url_list(url_list, workers):
     return scraped_links
 
 # Main function to simulate adding tasks to the event queue
+# using a queue system as it's the ideal system I'd want to implement. more detail in README.
 def main():
     # Create a queue to simulate event-driven task management
     event_queue = queue.Queue()
@@ -102,10 +102,13 @@ def main():
     listener_thread.daemon = True
     listener_thread.start()
 
+    # simulates two disjoint messages being pushed into the queue
     list1 = [
         "https://www.a2gov.org/ ",
         "https://www.bozeman.net/",
     ]
+
+    # simulates two disjoint messages being pushed into the queue
     list2 = [
         "https://www.asu.edu/",
         "https://www.boerneisd.net/",
@@ -130,14 +133,14 @@ def main():
 
 
 #test
-def main2():
+def test():
     url = ['https://www.bozeman.net/'] # Replace with your target URL
     
     urls1 = [
         "https://www.asu.edu/",
         "https://www.boerneisd.net/",
     ]
-    #scrape_complete_page(["https://www.bozeman.net/departments/finance/budget-and-financial-reports"], workers)
+    scrape_complete_page(["https://www.bozeman.net/departments/finance/budget-and-financial-reports"], workers)
     #scrape_complete_page(url, workers)
 
 
