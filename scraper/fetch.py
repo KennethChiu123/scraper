@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from transformers import pipeline
+from urllib.parse import urlparse, urljoin
 from config.config_loader import load_config
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
@@ -25,12 +26,15 @@ config = load_config()
 dbName = config["database"]
 # Keywords or labels to help the model prioritize relevant links
 labels = config["labels"]
+relevanceThreshold = config["relevanceThreshold"]
+maxDepth = config["maxDepth"]
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
 
 # Initialize HuggingFace model for text classification (we'll use a simple model here)
-nlp = pipeline("zero-shot-classification")
+nlp = pipeline("zero-shot-classification", device=0) # set to use GPU
+summarizer = pipeline('summarization', model='t5-large', tokenizer='t5-large')
 
 def get_firefox_options():
     options = FirefoxOptions()
@@ -44,6 +48,11 @@ def get_firefox_options():
 def remove_tags(text):
     TAG_RE = re.compile(r'<[^>]+>')
     return TAG_RE.sub('', text)
+
+def get_domain(url):
+    """Extract domain from a URL."""
+    parsed_url = urlparse(url)
+    return parsed_url.netloc  # Extract the domain (e.g., 'www.bozeman.net')
 
 def get_source(url):
     browser = None
@@ -80,9 +89,7 @@ def fetch(url):
     )
     return response
 
-
-# Function to scrape and identify relevant links
-def scrape_and_filter_links(url):
+def get_page_source(url):
     # Send HTTP request to the URL
     text = None
     response = fetch(url)
@@ -91,44 +98,65 @@ def scrape_and_filter_links(url):
         text = response.text
     else:
         text = get_source(url)
-    
-    if text == None:
-        return []
-    # Parse HTML content
-    soup = BeautifulSoup(text, 'html.parser')
-    
-    # Find all <a> tags (links)
-    links = soup.find_all('a', href=True)
 
-    # Filter links using ML model (zero-shot classification)
+    return text
+
+# Function to scrape and identify relevant links
+def get_relevant_links(url, page_source):
+    
     relevant_links = []
-    for link in links:
-        text = link.get_text().strip()
-        href = link['href']
-        
-        # Ensure that the 'text' is non-empty and the 'labels' are valid
-        if text:
-            # Run classification on the link text
-            result = nlp(text, candidate_labels=labels)
-            
-            # Check if the link is relevant (e.g., high score for "contact", "budget", etc.)
+    # Perform zero-shot classification on the page source
+    classification_result = nlp(page_source, candidate_labels=labels)
+    best_label = classification_result['labels'][0]
+    relevance_score = classification_result['scores'][0]
 
-            # example: {'sequence': 'Jobs', 'labels': ['important', 'report', 'contact', 'PDF', 'ACFr', 'financial', 'budget'], '
-            # scores': [0.6557594537734985, 0.09940328449010849, 0.08661620318889618, 0.05602235347032547, 
-            # 0.047790899872779846, 0.03889332339167595, 0.015514509752392769]}
-            if any(label in result['labels'][0] for label in labels):  # Heuristic to choose high-value links
+    logging.info(f"Zero shot classification => {best_label}, {relevance_score}.")
 
-                #skip bad scores
-                if result['scores'][0] < 0.5:
-                    continue
+    # If relevance score is below threshold, consider the page irrelevant
+    if relevance_score < relevanceThreshold:
+        return relevant_links
 
-                logging.debug(f"Got {url} with href {href} and score: {result['scores'][0]}.")
-                relevant_links.append({
-                    "url": url,
-                    "text": text,
-                    "href": href,
-                    "classification": result['labels'][0],
-                    "relevance_score": result['scores'][0]
-                })
+    #i went with summary over keywords
+    soup = BeautifulSoup(page_source, 'html.parser')
+    paragraphs = soup.get_text(separator=' ', strip=True)
+    #logging.info(f"paragraphs => {paragraphs}.")
+    generated_text = summarizer(paragraphs, min_length=10, max_length=100)
+    logging.info(f"generated_text => {generated_text}.")
+    #INFO:root:generated_text => [{'summary_text': "Ann Arbor's mission is to deliver exceptional services that sustain and enhance a vibrant, safe and diverse community . 
+    # Apply  Pay  Volunteer  Request  Report Licenses & Permits Voter Registration Election Inspectors Tax Deferment Apply for a scholarship Parking Citation Property 
+    # Tax Water Bill Solid Waste Bill Invoices Boards and Commissions Events GIVE 365 Natural Area Preservation Be the first to know when new information is available!"}].
+
     
+    relevant_links.append({
+        "url": url,
+        "summary": generated_text[0]['summary_text'],
+        "classification": best_label,
+        "relevance_score": relevance_score
+    })
+
     return relevant_links
+
+
+def get_downstream_links(url, page_source):
+    # Parse HTML content
+    soup = BeautifulSoup(page_source, 'html.parser')
+
+    # Get the domain of the current page
+    base_domain = get_domain(url)
+
+    links = soup.find_all('a', href=True)
+    urls = []
+    for link in links:
+        href = link.get('href')
+        # Make the URL absolute if it's relative
+        absolute_url = urljoin(url, href)
+        
+        # Get the domain of the link
+        link_domain = get_domain(absolute_url)
+        
+        # Compare the domain of the link to the base domain
+        if link_domain == base_domain:
+            # Add the link to the list if it matches the base domain
+            urls.append(absolute_url)
+    
+    return urls

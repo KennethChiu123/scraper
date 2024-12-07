@@ -20,10 +20,9 @@ def get_saved_links(db_name=dbName):
         link = {
             'id': row[0],
             'url': row[1],
-            'text': row[2],
-            'href': row[3],
-            'classification': row[4],
-            'score': row[5]
+            'summary': row[2],
+            'classification': row[3],
+            'relevance_score': row[4]
         }
         links.append(link)
     

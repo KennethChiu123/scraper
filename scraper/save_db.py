@@ -11,6 +11,10 @@ dbName = config["database"]
 
 # Function to save the links to a SQLite database
 def save_to_db(links, db_name=dbName):
+
+    if len(links) < 1:
+        return 
+    
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
     
@@ -19,8 +23,7 @@ def save_to_db(links, db_name=dbName):
         CREATE TABLE IF NOT EXISTS links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT,
-            text TEXT,
-            href TEXT,
+            summary TEXT,
             classification TEXT,
             relevance_score REAL
         )
@@ -29,9 +32,9 @@ def save_to_db(links, db_name=dbName):
     # Insert links into the database
     for link in links:
         cursor.execute('''
-            INSERT INTO links (url, text, href, classification, relevance_score) 
-            VALUES (?, ?, ?, ?, ?)
-        ''', (link['url'],link['text'], link['href'], link['classification'], link['relevance_score']))
+            INSERT INTO links (url, summary, classification, relevance_score) 
+            VALUES (?, ?, ?, ?)
+        ''', (link['url'],link['summary'], link['classification'], link['relevance_score']))
     
     conn.commit()
     conn.close()

@@ -1,5 +1,7 @@
 {
   "database": "data/scraper_results.db",
-  "labels": ["contact", "ACFr", "budget", "important", "report", "PDF", "financial"],
-  "workers": 2
+  "labels": ["contact", "ACFr", "budget", "financial", "annual comprehensive", "fiscal", "Debt capacity", "debt ratios", "legal debt margin", "Finance Director"],
+  "workers": 2,
+  "relevanceThreshold": 0.1,
+  "maxDepth": 1
 }
